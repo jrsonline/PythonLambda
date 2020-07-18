@@ -5,6 +5,8 @@
 //  Created by strictlyswift on 2-Jul-20.
 //
 
+import PythonKit
+
 /// Represents an executable python lambda as a string.
 ///
 /// The string is Python code which is executed as a lambda.
