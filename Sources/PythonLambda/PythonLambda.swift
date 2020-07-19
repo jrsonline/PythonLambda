@@ -6,9 +6,6 @@
 //
 
 import PythonKit
-import PythonLambdaSupport
-
-let METH_VARARGS  = Int32(0x0001)
 
 /// Allows Swift functions to be represented as Python lambdas. Note that you can use the typealias 𝝺 for `PythonLambda`, as per this documentation, because it looks nice. PythonLambda is only available on Python versions > 3.
 ///
@@ -149,32 +146,34 @@ public class PythonLambda {
     public let py: PythonObject
     private static var lambdaCounter = 0
     
+    private static let lib : PythonCLibrary? = PythonCLibrary()
+        
     public init( _ fn: @escaping (Int) -> Int) {
         let name = "lmb\(Self.lambdaUniqueName())"
-        
+
         self.backend = PythonLambdaSupport(fn, name: name)
-        self.py = PythonObject(self.backend.lambdaPointer )
+        self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
     
     public init( _ fn: @escaping (String) -> String) {
         let name = "lmb\(Self.lambdaUniqueName())"
         self.backend = PythonLambdaSupport(fn, name: name)
         
-        self.py = PythonObject(self.backend.lambdaPointer )
+        self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
     
     public init( _ fn: @escaping (String) -> Int) {
         let name = "lmb\(Self.lambdaUniqueName())"
         self.backend = PythonLambdaSupport(fn, name: name)
         
-        self.py = PythonObject(self.backend.lambdaPointer )
+        self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
     
     public init( _ fn: @escaping (Int) -> String) {
         let name = "lmb\(Self.lambdaUniqueName())"
         self.backend = PythonLambdaSupport(fn, name: name)
         
-        self.py = PythonObject(self.backend.lambdaPointer )
+        self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
     
     
@@ -182,42 +181,42 @@ public class PythonLambda {
         let name = "lmb\(Self.lambdaUniqueName())"
         self.backend = PythonLambdaSupport(fn, name: name)
         
-        self.py = PythonObject(self.backend.lambdaPointer )
+        self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
     
     public init( _ fn: @escaping (Double) -> Int) {
         let name = "lmb\(Self.lambdaUniqueName())"
         self.backend = PythonLambdaSupport(fn, name: name)
         
-        self.py = PythonObject(self.backend.lambdaPointer )
+        self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
     
     public init( _ fn: @escaping (Double) -> String) {
         let name = "lmb\(Self.lambdaUniqueName())"
         self.backend = PythonLambdaSupport(fn, name: name)
         
-        self.py = PythonObject(self.backend.lambdaPointer )
+        self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
     
     public init( _ fn: @escaping (Int) -> Bool) {
         let name = "lmb\(Self.lambdaUniqueName())"
             
         self.backend = PythonLambdaSupport(fn, name: name)
-        self.py = PythonObject(self.backend.lambdaPointer )
+        self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
     
     public init( _ fn: @escaping (String) -> Bool) {
         let name = "lmb\(Self.lambdaUniqueName())"
         
         self.backend = PythonLambdaSupport(fn, name: name)
-        self.py = PythonObject(self.backend.lambdaPointer )
+        self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
     
     public init( _ fn: @escaping (Double) -> Bool) {
         let name = "lmb\(Self.lambdaUniqueName())"
 
         self.backend = PythonLambdaSupport(fn, name: name)
-        self.py = PythonObject(self.backend.lambdaPointer )
+        self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
     
     public init( _ fn: @escaping (Bool) -> Int) {
@@ -228,7 +227,7 @@ public class PythonLambda {
         }
             
         self.backend = PythonLambdaSupport(pfn, name: name)
-        self.py = PythonObject(self.backend.lambdaPointer )
+        self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
     
     public init( _ fn: @escaping (Bool) -> Bool) {
@@ -239,7 +238,7 @@ public class PythonLambda {
         }
             
         self.backend = PythonLambdaSupport(pfn, name: name)
-        self.py = PythonObject(self.backend.lambdaPointer )
+        self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
     
     public init( _ fn: @escaping (Bool) -> String) {
@@ -250,7 +249,7 @@ public class PythonLambda {
         }
             
         self.backend = PythonLambdaSupport(pfn, name: name)
-        self.py = PythonObject(self.backend.lambdaPointer )
+        self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
     
     public init( _ fn: @escaping (Bool) -> Double) {
@@ -261,87 +260,91 @@ public class PythonLambda {
         }
             
         self.backend = PythonLambdaSupport(pfn, name: name)
-        self.py = PythonObject(self.backend.lambdaPointer )
+        self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
     
     public init( _ fn: @escaping (PythonObject) -> Int) {
         let name = "lmb\(Self.lambdaUniqueName())"
         
         let pfn = { pop in
-            fn(PythonObject(PyReference(pop)))
+          //  fn(PythonObject(PyReference(pop)))
+            fn(PythonObject(unsafe: pop))
         }
         
         self.backend = PythonLambdaSupport(pfn, name: name)
-        self.py = PythonObject(self.backend.lambdaPointer )
+        self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
     
     public init( _ fn: @escaping (PythonObject) -> String) {
         let name = "lmb\(Self.lambdaUniqueName())"
         
         let pfn = { pop in
-            fn(PythonObject(PyReference(pop)))
+            fn(PythonObject(unsafe: pop))
         }
         
         self.backend = PythonLambdaSupport(pfn, name: name)
-        self.py = PythonObject(self.backend.lambdaPointer )
+        self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
     
     public init( _ fn: @escaping (PythonObject) -> Double) {
         let name = "lmb\(Self.lambdaUniqueName())"
         
         let pfn = { pop in
-            fn(PythonObject(PyReference(pop)))
+            fn(PythonObject(unsafe: pop))
         }
         
         self.backend = PythonLambdaSupport(pfn, name: name)
-        self.py = PythonObject(self.backend.lambdaPointer )
+        self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
     
     public init( _ fn: @escaping (PythonObject) -> Bool) {
         let name = "lmb\(Self.lambdaUniqueName())"
         
         let pfn = { pop in
-            fn(PythonObject(PyReference(pop)))
+            fn(PythonObject(unsafe: pop))
         }
         
         self.backend = PythonLambdaSupport(pfn, name: name)
-        self.py = PythonObject(self.backend.lambdaPointer )
+        self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
 
     public init( _ fn: @escaping (PythonObject) -> PythonObject) {
         let name = "lmb\(Self.lambdaUniqueName())"
         
         let pfn = { pop in
-            fn(PythonObject(PyReference(pop))).checking.ownedPyObject
+            fn(PythonObject(unsafe: pop)).asUnsafePointer
         }
         
         self.backend = PythonLambdaSupport(pfn, name: name)
-        self.py = PythonObject(self.backend.lambdaPointer )
+        self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
     
     public init( _ fn: @escaping (PythonObject, PythonObject) -> PythonObject) {
         let name = "lmb\(Self.lambdaUniqueName())"
         
         let pfn = { popA, popB in
-            fn(PythonObject(PyReference(popA)),PythonObject( PyReference(popB) )).checking.ownedPyObject
+            fn(PythonObject(unsafe:popA),PythonObject( unsafe:popB )).asUnsafePointer
         }
         
         self.backend = PythonLambdaSupport(pfn, name: name)
-        self.py = PythonObject(self.backend.lambdaPointer )
+        self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
 
     public init( _ fn: @escaping (PythonObject, PythonObject, PythonObject) -> PythonObject) {
         let name = "lmb\(Self.lambdaUniqueName())"
         
         let pfn = { popA, popB, popC in
-            fn(PythonObject(PyReference(popA)),PythonObject( PyReference(popB) ),PythonObject( PyReference(popC) )).checking.ownedPyObject
+            fn(PythonObject(unsafe:popA),PythonObject( unsafe:popB ),PythonObject( unsafe:popC )).asUnsafePointer
         }
         
         self.backend = PythonLambdaSupport(pfn, name: name)
-        self.py = PythonObject(self.backend.lambdaPointer )
+        self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
     
      private static func lambdaUniqueName() -> String {
+        // force static library to be lazily instantiated
+        guard Self.lib != nil else { fatalError("Python C library not instantiated!")}
+        
         lambdaCounter += 1
          return "\(lambdaCounter)"
      }

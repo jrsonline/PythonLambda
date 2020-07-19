@@ -1,5 +1,7 @@
 import libpylamsupport
 
+let pythonCLibrary = PythonCLibrary()
+
 let METH_VARARGS  = Int32(0x0001)
 typealias PyObjectPointer = UnsafeMutableRawPointer
 /// Allows Swift functions to be represented as Python lambdas.
@@ -29,6 +31,8 @@ typealias PyObjectPointer = UnsafeMutableRawPointer
 ///
 ///
 public class PythonLambdaSupport {
+    internal static let library = PythonCLibrary()
+    
     internal static var lambdaIntIntMap: [String: (Int) -> Int] = [:]
     internal static var lambdaStringStringMap: [String:  (String) -> String] = [:]
     internal static var lambdaStringIntMap: [String: (String) -> Int] = [:]

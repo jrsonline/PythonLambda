@@ -2,7 +2,7 @@
 //  LambdaBuilder.c
 //  DataFrame
 //
-//  Created by RedPanda on 2-Jul-20.
+//  Created by strictlyswift on 2-Jul-20.
 //  Copyright © 2020 strictlyswift. All rights reserved.
 //
 

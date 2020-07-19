@@ -42,11 +42,11 @@ public class PythonStringLambda : PythonConvertible {
             return Self.main[dynamicMember: id]
         } else {
             id = "lmbstr\(Self.lambdaCounter)"
-            PyRun_SimpleString(
-            """
-            \(id!) = lambda \(lambda)
-            """)
-            
+            Python.execute(
+                """
+                \(id!) = lambda \(lambda)
+                """
+            )
             Self.lambdaCounter += 1
             return Self.main[dynamicMember: id!]
         }
@@ -54,24 +54,3 @@ public class PythonStringLambda : PythonConvertible {
 }
 
 
-extension PythonInterface {
-    /// Executes Python code directly in the Python interpreter. Useful to (for example) define a function to
-    /// call as a lambda later.
-    ///
-    /// Use at your own risk! Errors must be handled in Python, otherwise they are likely to simply crash your Swift code.
-    ///
-    /// - Example:
-    ///
-    ///       Python.execute("""
-    ///           def add5(i):
-    ///               return (i+5)
-    ///       """)
-    ///       let fiveAdder = PythonStringLambda(lambda: "i:add5(i)")
-    ///       Python.map( fiveAdder , [10,12,14] )   // [15,17,19]
-    public func execute(_ code: String) {
-        PyRun_SimpleString(
-        """
-        \(code)
-        """)
-    }
-}

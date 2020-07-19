@@ -22,8 +22,8 @@ class PythonLambdaTests: XCTestCase {
     }
     
     func testIntBoolLambda() {
-        let even = plist(pmap( 𝝺{(x:Int) in x.isMultiple(of: 3) ? true : false},  [45, 56, 63] ))
-        XCTAssertEqual(Array<Bool>(even) , [true, false, true])
+        let triple = plist(pmap( 𝝺{(x:Int) in x.isMultiple(of: 3) ? true : false},  [45, 56, 63] ))
+        XCTAssertEqual(Array<Bool>(triple) , [true, false, true])
     }
     
     func testIntStringLambda() {
@@ -96,5 +96,7 @@ class PythonLambdaTests: XCTestCase {
         
         XCTAssertEqual(added, [15, 17, 19])
     }
+    
+
 }
 
