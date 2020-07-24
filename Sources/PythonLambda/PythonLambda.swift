@@ -277,8 +277,8 @@ public class PythonLambda {
     
     /// Use this to pass in a function as a PythonObject, say a numpy
     /// function like `np.sum`.  The function must have the shape `(A)->A`.
-    public convenience init( func: PythonObject ) {
-        self.init( { f in `func`(f) } )
+    public convenience init( fn: PythonObject ) {
+        self.init( { f in fn(f) } )
     }
     
     public init( _ fn: @escaping (PythonObject) -> String) {
