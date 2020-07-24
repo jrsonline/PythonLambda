@@ -1,4 +1,4 @@
-// swift-tools-version:5.3
+// swift-tools-version:5.1
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -7,16 +7,12 @@ let package = Package(
     name: "PythonLambda",
     products: [
         // Products define the executables and libraries a package produces, and make them visible to other packages.
-//        .library(
-//            name: "PythonLambdaSupport", // provides C-based interface to Python
-//            targets: ["PythonLambdaSupport"]),
         .library(
             name: "PythonLambda",
             targets: ["PythonLambda"]),
     ],
     dependencies: [
      //   .package(url: "https://github.com/pvieito/PythonKit.git", .branch("master")),
-     //   .package(path: "../../PythonKit")
         .package(url:"https://github.com/jrsonline/PythonKit.git",.branch("py_c_tools"))
     ],
     targets: [
@@ -26,10 +22,6 @@ let package = Package(
             name: "libpylamsupport",
             dependencies: []
         ),
-//        .target(
-//            name: "PythonLambdaSupport",
-//            dependencies: ["libpylamsupport"]
-//        ),
         .target(
             name: "PythonLambda",
             dependencies:[  "libpylamsupport" , "PythonKit"]

@@ -275,6 +275,12 @@ public class PythonLambda {
         self.py = PythonObject(unsafe: self.backend.lambdaPointer )
     }
     
+    /// Use this to pass in a function as a PythonObject, say a numpy
+    /// function like `np.sum`.  The function must have the shape `(A)->A`.
+    public convenience init( func: PythonObject ) {
+        self.init( { f in `func`(f) } )
+    }
+    
     public init( _ fn: @escaping (PythonObject) -> String) {
         let name = "lmb\(Self.lambdaUniqueName())"
         
