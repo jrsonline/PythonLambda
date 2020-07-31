@@ -13,7 +13,7 @@ let package = Package(
     ],
     dependencies: [
      //   .package(url: "https://github.com/pvieito/PythonKit.git", .branch("master")),
-        .package(url:"https://github.com/jrsonline/PythonKit.git",.branch("py_c_tools"))
+        .package(url:"https://github.com/jrsonline/PythonKit.git",.branch("extended_dynamic_calls"))
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
