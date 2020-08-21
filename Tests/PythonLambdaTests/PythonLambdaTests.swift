@@ -79,6 +79,15 @@ class PythonLambdaTests: XCTestCase {
         XCTAssertEqual(countRets, 30000)
     }
     
+    func testLambdaName() {
+        let tripler = 𝝺{x in x*3}
+        
+        XCTAssertTrue(Bool(Python.hasattr(tripler, "__name__") )!)
+        
+        let name = Python.getattr(tripler, "__name__")
+        XCTAssertTrue(String(name)?.hasPrefix("lmb") ?? false)
+    }
+    
     func testStringLambda() {
         let len = PythonStringLambda(lambda: "x:len(x)")
         let results = plist(pmap( len, ["hello","bye",""]))

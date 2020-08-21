@@ -273,23 +273,27 @@ public class PythonLambdaSupport {
     
     private static func methodDefFor( name: String,
                               method: PyCFunction?) -> UnsafeMutablePointer<PyMethodDef> {
-        name.utf8CString.withUnsafeBufferPointer { namePtr in
-            let methodDef = PyMethodDef(
-                ml_name:  namePtr.baseAddress,
-                ml_meth: method,
-                ml_flags: METH_VARARGS,
-                ml_doc: namePtr.baseAddress
-            )
+        // take a copy of the name so it doesn't get deallocated
+        // (this then breaks certain specialist functions)
+        // as per methodDef below, this is a memory leak
+        let nameCopy = UnsafeMutableBufferPointer<CChar>.allocate(capacity: name.utf8CString.count + 1)
+        _ = nameCopy.initialize(from: name.utf8CString)
+
+        let methodDef = PyMethodDef(
+            ml_name:  nameCopy.baseAddress,
+            ml_meth: method,
+            ml_flags: METH_VARARGS,
+            ml_doc: nameCopy.baseAddress
+        )
+        
+        return withUnsafePointer(to: methodDef) { methodDefPtr in
+        // we take a copy of the method definition, because otherwise Swift will
+        // deallocate it for us when the PythonLambda goes out of scope
+        // this is a memory leak
+            let fnDef = UnsafeMutablePointer<PyMethodDef>.allocate(capacity: 1)
+            fnDef.assign(from: methodDefPtr, count: 1)
             
-            return withUnsafePointer(to: methodDef) { methodDefPtr in
-            // we take a copy of the method definition, because otherwise Swift will
-            // deallocate it for us when the PythonLambda goes out of scope
-            // this is a memory leak
-                let fnDef = UnsafeMutablePointer<PyMethodDef>.allocate(capacity: 1)
-                fnDef.assign(from: methodDefPtr, count: 1)
-                
-                return fnDef
-            }
+            return fnDef
         }
         
 
