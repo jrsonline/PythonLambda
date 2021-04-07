@@ -411,3 +411,206 @@ public func >>>(lambda:𝝺, receiving: @escaping (𝝺) -> PythonObject) -> Pyt
 public func withDeallocating(_ lambda:PythonLambda, in receiving: @escaping (PythonLambda) -> PythonObject) -> PythonObject {
     return PythonLambdaApplication(lambda, to: receiving).exec()
 }
+
+
+extension PythonLambda {
+    public static func execute(code: String, globals: [String:Any] , type: PythonLambdaSupport.PythonExecutionType = .Py_file_input, showErrors: Bool = false) -> PythonObject {
+        guard Self.lib != nil else { fatalError("Python C library not instantiated!")}
+
+        let pythonConvertibleGlobals = globals.filter { $0.value is PythonConvertible }.mapValues { ($0 as! PythonConvertible).pythonObject }
+            
+        let result = PythonLambdaSupport.executeCode(code: code, globals: pythonConvertibleGlobals.pythonObject.asUnsafePointer, type: type, showErrors: showErrors)
+  //      print( PythonLambdaSupport.getGlobals() )
+        return result.map {PythonObject(unsafe: $0 )} ?? Python.None
+        
+    }
+    
+    public static func addToGlobalDictionary<T: PythonConvertible>(key: String, value: T) {
+        guard Self.lib != nil else { fatalError("Python C library not instantiated!")}
+
+       PythonLambdaSupport.setInGlobalDictionary(key: key, value: value.pythonObject.asUnsafePointer)
+    }
+    
+    public static func getFromGlobalDictionary(key: String) -> PythonObject {
+        guard Self.lib != nil else { fatalError("Python C library not instantiated!")}
+
+        let value = PythonLambdaSupport.getFromGlobalDictionary(key: key)
+        return value.map { PythonObject(unsafe: $0) } ?? Python.None
+    }
+    
+
+    /// Sets up redirection of stdout and stderr to a string. Call this prior to calling `Python.execute`. Call `retrieveRedirectedOutput()`
+    /// afterwards to retrieve the redirected output.
+    /// Errors are also picked up.
+    ///
+    /// You probably want to use `initializeInteractiveExecutor` and `executeInteractiveCode` instead.
+    public static func setupRedirectionOfOutputToString() {
+        let stdoutRedirect =
+        """
+        import sys
+        class _CatchOutErr:
+            def __init__(self):
+                self.out = ''
+                self.recent = ''
+            def write(self, txt):
+                self.recent += txt
+            def mark(self):
+                self.out += self.recent
+                r = self.recent
+                self.recent = ''
+                return r
+        _catchOutErr = _CatchOutErr()
+        sys.stdout = _catchOutErr
+        sys.stderr = _catchOutErr
+        """
+        
+        Python.execute(stdoutRedirect)
+    }
+    
+    /// Call this after calling `setupRedirectionOfOutputToString()` and executing some Python code, to retrieve recent changes to the standard output and error streams.
+    /// Calling this function resets what is treated as "recent", so the next call of this function will
+    /// retrieve any changes to stderr/stdout since the last call.
+    public static func retrieveRecentRedirectedOutput() -> String {
+        guard Self.lib != nil else { fatalError("Python C library not instantiated!")}
+
+        let recent = String( PythonObject(unsafe: PythonLambdaSupport.retrieveRedirectedOutput(attrName: "_catchOutErr", valueName: "recent"))) ?? ""
+        Python.execute("_catchOutErr.mark()")
+        
+        return recent
+    }
+    
+    public static func retrieveAllRedirectedOutput() -> String {
+        guard Self.lib != nil else { fatalError("Python C library not instantiated!")}
+
+        return String( PythonObject(unsafe: PythonLambdaSupport.retrieveRedirectedOutput(attrName: "_catchOutErr", valueName: "out"))) ?? ""
+    }
+    
+    
+    private static func setupInteractiveEvaluation() {
+        Python.execute(
+        """
+        class _InteractiveEval:
+            def __init__(self):
+                self._iv_value = None
+                self._iv_toeval = ''
+                self._iv_type = ''
+            def _iveval(self):
+                self._iv_value = eval(self._iv_toeval)
+                self._type = type(self._iv_value)
+        _interactiveEval = _InteractiveEval()
+        """
+        )
+    }
+    
+    private struct PythonInterpreterError : Error {}
+
+    @available(OSX 10.15, *)
+    public static func executeLikeInteractive(code: String) -> String {
+        guard Self.lib != nil else { fatalError("Python C library not instantiated!")}
+
+        func isDefiniteStatement(line: String) -> Bool {
+            line.last.map { $0 == ":" } ?? true || line.first.map { $0.isWhitespace } ?? true
+        }
+        
+        var result: String = ""
+    
+
+        do {
+            var statementGroup : [String] = []
+            for line in code.split(separator: "\n") {
+                let sLine = String(line)
+                if isDefiniteStatement(line: sLine) {
+                    statementGroup += [sLine]
+                } else {
+                    if statementGroup.count > 0 {
+                        Python.execute( statementGroup.joinedIfNecessary(with: "\n") )
+                        statementGroup = []
+                        
+                        if PythonLambdaSupport.wasPythonErrorRaised() {
+                            throw PythonInterpreterError()
+                        }
+
+                    }
+                    
+                    let tempResult = PythonLambda.retrieveRecentRedirectedOutput()
+                    
+                    if PythonLambdaSupport.canCompileCode(code: sLine, tagName: "Ace") {
+
+                        let (expResultPtr, expTypePtr) = PythonLambdaSupport.executeAndReturn(code: sLine, attrName: "_interactiveEval", toEval: "_iv_toeval", evalExecute: "_iveval", valueName: "_iv_value", typeName: "_iv_type")
+                        let expResult = expResultPtr.map { PythonObject(unsafe:$0) } ?? Python.None
+                        let expType = expTypePtr.map { PythonObject(unsafe:$0) } ?? Python.None
+
+                        let postEvalResult = PythonLambda.retrieveRecentRedirectedOutput()
+                        if "\(expType)" == "<class 'NoneType'>" && postEvalResult == "" {
+                            result = [result, tempResult]
+                                .joinedIfNecessary(with: "\n")
+                            Python.execute(sLine)
+                        } else {
+                            let elements =
+                                [tempResult, "\("\(expType)" == "<class 'NoneType'>" ? "" : expResult)", postEvalResult]
+                                .joinedIfNecessary(with: "\n")
+                            result += elements
+                        }
+                    } else {
+                        result += [tempResult]
+                            .joinedIfNecessary(with: "\n")
+                        
+                        // reset error flag after failing to compile code
+                        PythonLambdaSupport.clearPythonErrors()
+                        Python.execute(sLine)
+                    }
+                                        
+                    if PythonLambdaSupport.wasPythonErrorRaised() {
+                        throw PythonInterpreterError()
+                    }
+
+                }
+                
+            }
+            
+            // Compute any leftover statement groups
+            if statementGroup.count > 0 {
+                Python.execute( statementGroup.joined(separator: "\n") )
+                statementGroup = []
+            }
+        } catch {
+            PythonLambdaSupport.showPythonErrors()
+            PythonLambdaSupport.clearPythonErrors()
+        }
+        return result
+    }
+    
+    /// Call this once, before calling `executeInteractiveCode`.
+    @available(OSX 10.15, *)
+    public static func initializeInteractiveExecutor() {
+        PythonLambda.setupRedirectionOfOutputToString()
+        PythonLambda.setupInteractiveEvaluation()
+    }
+    
+    /// Attempts to run a block of text in an interactive-REPL-like way. This is far from perfect as the code block is NOT
+    /// being provided interactively; the interactive REPL disallows some things which should be fine in regular code.
+    /// However two things 'executeInteractiveCode' attempts to do are: i) if the last line is an expression, return the
+    /// result of the expression; ii) errors are returned via strings as per the Python interpreter.
+    @available(OSX 10.15, *)
+    public static func executeInteractiveCode(codeText: String) -> String {
+
+        let result = PythonLambda.executeLikeInteractive(code: codeText)
+    
+        let output = PythonLambda.retrieveRecentRedirectedOutput()
+        let refinedOutput: String
+        if let last = output.last, last == "\n" {
+            refinedOutput = String(output.dropLast())
+        } else {
+            refinedOutput = output
+        }
+        
+        let refinedResult: String
+        if result == "None" {
+            refinedResult = ""
+        } else {
+            refinedResult = result
+        }
+        
+        return [refinedResult, refinedOutput].joined(separator: "\n")
+    }
+}

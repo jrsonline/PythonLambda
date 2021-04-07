@@ -16,6 +16,23 @@ const char* (*pyunicode_asutf8)(PyObject*);
 PyObject* (*pyunicode_fromstring)(const char*);
 PyObject* (*py_createPyCFunction)(PyMethodDef*, PyObject*, PyObject*);
 PyObject* (*py_boolfromlong)(long v);
+PyObject* (*py_runString)(const char* code, int, PyObject*, PyObject*);
+void (*py_errorprint)(void);
+PyObject* (*py_getitemstring)(PyObject*, const char*);
+PyObject* (*py_setitemstring)(PyObject*, const char*, PyObject*);
+PyObject* (*py_evalgetbuiltins)(void);
+PyObject* (*py_getglobals)(void);
+PyObject* (*py_import_addmodule)(const char *);
+PyObject* (*py_import_getmodule)(const char *);
+PyObject* (*py_module_getdict)(PyObject*);
+PyObject* (*py_object_getattrstring)(PyObject*, const char*);
+int (*py_object_setattrstring)(PyObject*, const char*, PyObject*);
+
+int (*py_run_interactiveone)(FILE *fp, const char *filename);
+void (*py_error_clear)(void);
+PyObject* (*py_compile_string)(const char *code, const char *filename, int start);
+PyObject* (*py_err_occurred)(void);
+void (*py_execute)(const char*);
 
 int initialisePythonLibrary(void* libraryHandle) {
     _pythonLibraryHandle = libraryHandle;
@@ -33,6 +50,27 @@ int initialisePythonLibrary(void* libraryHandle) {
     pyunicode_fromstring = dlsym(_pythonLibraryHandle, "PyUnicode_FromString");
     py_boolfromlong = dlsym(_pythonLibraryHandle, "PyBool_FromLong");
     py_createPyCFunction = dlsym(_pythonLibraryHandle, "PyCFunction_NewEx");
+    
+    py_runString = dlsym(_pythonLibraryHandle, "PyRun_String");
+    py_errorprint = dlsym(_pythonLibraryHandle, "PyErr_Print");
+    py_error_clear = dlsym(_pythonLibraryHandle, "PyErr_Clear");
+    py_getitemstring = dlsym(_pythonLibraryHandle, "PyDict_GetItemString");
+    py_setitemstring = dlsym(_pythonLibraryHandle, "PyDict_SetItemString");
+    py_evalgetbuiltins = dlsym(_pythonLibraryHandle, "PyEval_GetBuiltins");
+    py_getglobals = dlsym(_pythonLibraryHandle, "PyEval_GetGlobals");
+    
+    py_import_addmodule = dlsym(_pythonLibraryHandle, "PyImport_AddModule");
+    py_import_getmodule = dlsym(_pythonLibraryHandle, "PyImport_GetModule");
+
+    py_module_getdict = dlsym(_pythonLibraryHandle, "PyModule_GetDict");
+    
+    py_object_getattrstring = dlsym(_pythonLibraryHandle, "PyObject_GetAttrString");
+    py_object_setattrstring = dlsym(_pythonLibraryHandle, "PyObject_SetAttrString");
+
+    py_run_interactiveone = dlsym(_pythonLibraryHandle, "PyRun_InteractiveOne");
+    py_compile_string = dlsym(_pythonLibraryHandle, "Py_CompileString");
+    py_err_occurred = dlsym(_pythonLibraryHandle, "PyErr_Occurred");
+    py_execute = dlsym(_pythonLibraryHandle, "PyRun_SimpleString");
 #endif
 }
 
@@ -173,6 +211,77 @@ void debug_showAddress(const char* varName, void* value) {
     printf("variable %s has value %#llx\n", varName, (unsigned long long)value);
 }
 
+PyObject* executePythonCode(const char* code, int start, PyObject* globals, PyObject* locals, int showErrors) {
+    if ((*py_getitemstring)(globals, "__builtins__") == NULL) {
+        if ((*py_setitemstring)(globals, "__builtins__", (*py_evalgetbuiltins)()) != 0)
+            return NULL;
+    }
+    
+    PyObject* value = (*py_runString)(code, start, globals, locals);
+    
+    if (showErrors)
+        printErrors();
+    else
+        clearErrors();
+        
+    return value;
+}
+
+PyObject* getPythonExecutionGlobals() {
+    return (*py_getglobals)();
+}
+
+void setItemInGlobalDictionary(const char* key, PyObject* value) {
+    PyObject* main_module = (*py_import_addmodule)("__main__");
+    PyObject* global_dict = (*py_module_getdict)(main_module);
+    
+    (*py_setitemstring)(global_dict, key, value);
+}
+
+PyObject*  getItemFromGlobalDictionary(const char* key) {
+    PyObject* main_module = (*py_import_addmodule)("__main__");
+    PyObject* global_dict = (*py_module_getdict)(main_module);
+    
+    return (*py_getitemstring)(global_dict, key);
+}
+
+
+PyObject* getAttrString(PyObject* obj, const char* attr) {
+    return (*py_object_getattrstring)(obj, attr);
+}
+
+int setAttrString(PyObject* obj, const char* attr, PyObject* value) {
+    return (*py_object_setattrstring)(obj, attr, value) == 0;
+}
+
+PyObject* getModule(const char* name) {
+    return (*py_import_addmodule)("__main__");
+}
+
+void printErrors() {
+    (*py_errorprint)();
+}
+
+void clearErrors() {
+    (*py_error_clear)();
+}
+
+int runInteractiveOne(FILE* fp, const char* filename) {
+    return (*py_run_interactiveone)(fp, filename);
+}
+
+PyObject* compileString(const char* code, const char* name, int start) {
+    return (*py_compile_string)(code, name, start);
+}
+
+PyObject* errorRaised(void) {
+    return (*py_err_occurred)();
+}
+
+void executeOnMain(const char* code) {
+    (*py_execute)(code);
+}
+    
 //PyObject* addFunction(PyMethodDef *method, PyObject* callback) {
 //    return (void*)PyCFunction_New(method, NULL);
 //    //return PyCFunction_New(&donothing_ml, NULL);

@@ -299,15 +299,17 @@ public class PythonLambdaSupport {
 
     }
     
+    
+    public var lambdaPointer: UnsafeMutableRawPointer {
+        get { return pythonLambda }
+    }
+    
+    
     private static func lambdaBuilder( methodDefPtr: UnsafeMutablePointer<PyMethodDef>, name: String) -> PyObjectPointer {
         name.utf8CString.withUnsafeBufferPointer { namePtr in
             let pop = createPyCFunction(methodDefPtr, getPyUnicode_FromString(namePtr.baseAddress))
             return UnsafeMutableRawPointer(pop!)
         }
-    }
-
-    public var lambdaPointer: UnsafeMutableRawPointer {
-        get { return pythonLambda }
     }
     
     /// Deallocate a lambda function. This has to be done manually.
@@ -756,4 +758,138 @@ func pyStringObjectCaller(sself:UnsafeMutablePointer<PyObject>?,
         } else {
             return nil
         }
+}
+
+
+extension PythonLambdaSupport {
+    
+    public enum PythonExecutionType: Int {
+        case Py_eval_input = 258
+        case Py_file_input = 257
+        case Py_single_string = 256
+    }
+ 
+    internal static func executeCode( code: String, globals: PyObjectPointer, type: PythonExecutionType  = .Py_file_input, showErrors: Bool = true) -> PyObjectPointer? {
+//        var globalDict = ["dataframe":0xbeef].pythonObject.asUnsafePointer
+        
+        let globalDictPtr = globals.assumingMemoryBound(to: PyObject.self)
+        
+        let pop = executePythonCode(code, Int32(type.rawValue), globalDictPtr, globalDictPtr, showErrors ? 1 : 0)
+        
+        return pop.map {UnsafeMutableRawPointer($0)}
+    }
+    
+    internal static func getGlobals() -> PyObjectPointer? {
+        let pop = getPythonExecutionGlobals()  /// borrowed reference
+        return UnsafeMutableRawPointer(pop)
+    }
+    
+    internal static func setInGlobalDictionary(key: String, value: PyObjectPointer) {
+        let valuePtr = value.assumingMemoryBound(to: PyObject.self)
+
+        setItemInGlobalDictionary(key, valuePtr)
+    }
+    
+    internal static func getFromGlobalDictionary(key: String) -> PyObjectPointer? {
+        let value = getItemFromGlobalDictionary(key)
+        return UnsafeMutableRawPointer(value)
+    }
+    
+    internal static func retrieveRedirectedOutput(attrName: String, valueName: String) -> PyObjectPointer {
+        let mainModule = getModule("__main__")
+        let attr = getAttrString(mainModule, attrName)
+//        printErrors()  // force any errors to be printed .. dont do this here, controlled higher up stack
+        let output = getAttrString(attr, valueName)
+        
+        return UnsafeMutableRawPointer(output!)
+    }
+    
+    internal static func setPythonAttrString(attrName: String, valueName: String, to value: PyObjectPointer) -> Bool {
+        let valuePtr = value.assumingMemoryBound(to: PyObject.self)
+
+        let mainModule = getModule("__main__")
+        let attr = getAttrString(mainModule, attrName)
+        let successfullySetAttr = setAttrString(attr, valueName, valuePtr)
+        return successfullySetAttr != 0
+    }
+    
+    // Hacky
+    internal static func executeAndReturn(code: String, attrName: String, toEval: String, evalExecute: String, valueName: String, typeName: String) -> (PyObjectPointer?, PyObjectPointer?) {
+        let mainModule = getModule("__main__")
+        let attr = getAttrString(mainModule, attrName)
+        return code.utf8CString.withUnsafeBufferPointer { (codePtr:UnsafeBufferPointer<CChar>) -> (PyObjectPointer?, PyObjectPointer?) in
+            guard setPythonAttrString(attrName: attrName, valueName: toEval, to: getPyUnicode_FromString(codePtr.baseAddress)) else { return (nil,nil) }
+            
+            executeOnMain(
+            """
+            \(attrName).\(evalExecute)()
+                
+            """
+            )
+            let output = getAttrString(attr, valueName)
+            let type = getAttrString(attr, typeName)
+            return (UnsafeMutableRawPointer(output), UnsafeMutableRawPointer(type))
+        }
+    }
+    
+    internal static func canCompileCode(code: String, tagName: String, type: PythonExecutionType = .Py_eval_input) -> Bool {
+        let result = compileString(code, tagName, Int32(type.rawValue))
+        return (result != nil)
+    }
+    
+    internal static func clearPythonErrors() {
+        clearErrors()
+    }
+    
+    internal static func showPythonErrors() {
+        printErrors()
+    }
+    
+    internal static func wasPythonErrorRaised() -> Bool {
+        return (errorRaised() != nil)
+    }
+}
+
+import Foundation
+@available(OSX 10.15, *)
+extension PythonLambdaSupport {
+    /// returns output to stdout, so use `retrieveRedirectedOutput` to get it
+    internal static func runSingleStatementLikeInteractive(code: String) {
+        // the python API uses a file, so we have to create one... messy this
+        let tempDir = FileManager.default.temporaryDirectory
+        let tempFile = tempDir.appendingPathComponent(UUID().uuidString)
+        let data = (code + "\n" + "\r").data(using: .utf8)
+        do {
+            try data?.write(to: tempFile, options: .atomic)
+            
+            // now open it for reading
+            let fileHandle = fopen( tempFile.path, "r" )
+            defer { fclose(fileHandle) }
+            
+            runInteractiveOne(fileHandle, tempFile.lastPathComponent)
+            
+        } catch {
+            NSLog("Error: \(error)")
+        }
+    }
+}
+
+
+extension Array where Element: StringProtocol {
+    func joinedIfNecessary(with joiner: Character, joinEmpty: Bool = false) -> String {
+        var output = ""
+        for s in self {
+            if let lastElement = s.last {
+                output.append(contentsOf: s)
+                if lastElement != joiner {
+                    output.append(joiner)
+                }
+            } else {
+                if joinEmpty {
+                    output.append(joiner)
+                }
+            }
+        }
+        return output
+    }
 }

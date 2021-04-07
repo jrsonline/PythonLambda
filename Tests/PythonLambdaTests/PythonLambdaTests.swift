@@ -106,6 +106,184 @@ class PythonLambdaTests: XCTestCase {
         XCTAssertEqual(added, [15, 17, 19])
     }
     
+    func testExecuteString() {
+        let globals = ["dataframe": 1234]
+        
+        let code = """
+            print(dataframe)
+            print( globals() )
+            """
+        
+        PythonLambda.addToGlobalDictionary(key:"dataframe", value: 1234)   // ok this now works, needs tidying up. 
+        
+        print( Python.execute(code) )
+        
+        Python.execute(
+            """
+            print(dataframe)
+            a = 5827
+            """
+        )
+        
+        Python.execute(
+            """
+            print(a)
+            """
+        )
+
+    }
+    
+    func testExecuteInteractive0() {
+        let code1 =
+        """
+        print("Hi")
+        """
+        
+        let output1 = executeInteractiveCode(codeText: code1)
+        
+        XCTAssertEqual(output1,
+                        """
+
+                        Hi
+
+                        """)
+    }
+    
+    func testExecuteInteractive1() {
+        let code1 =
+        """
+        for i in [1,2,3,4]:
+            print(i)
+        print("Done")
+        """
+        
+        let output1 = executeInteractiveCode(codeText: code1)
+        
+        XCTAssertEqual(output1,
+                        """
+
+                        1
+                        2
+                        3
+                        4
+                        Done
+
+                        """)
+    }
+    
+    func testExecuteInteractive2() {
+        let code2 =
+        """
+        print("Done"
+        """
+        let output2 = executeInteractiveCode(codeText: code2)
+        
+        XCTAssertEqual(output2,
+                        """
+                          File "<string>", line 1
+                            print("Done"
+                                       ^
+                        SyntaxError: unexpected EOF while parsing
+
+                        """)
+    }
+    
+    func testExecuteInteractive3() {
+        let code3 =
+        """
+        a=1
+        a+1
+        """
+        let output3 = executeInteractiveCode(codeText: code3)
+        XCTAssertEqual(output3,
+                        """
+
+                        2
+
+                        """)
+
+        
+    }
+    
+    func testExecuteInteractive4() {
+        let code4 =
+        """
+        b='hello'
+        b+' everyone'
+        """
+        let output4 = executeInteractiveCode(codeText: code4)
+        XCTAssertEqual(output4,
+                        """
+
+                        hello everyone
+
+                        """)
+    }
+    
+    func testExecuteInteractive5() {
+        let code5 =
+        """
+        for i in [1,2,3,4]:
+            print(i)
+        for v in ['a','b','c','d']:
+            print(v)
+        v + str(i)
+        """
+        let output5 = executeInteractiveCode(codeText: code5)
+        XCTAssertEqual(output5,
+                        """
+
+                        1
+                        2
+                        3
+                        4
+                        a
+                        b
+                        c
+                        d
+                        d4
+
+                        """)
+    }
+    
+    func testExecuteInteractive6() {
+        let code6 =
+        """
+        print('hi')
+        print('h
+        print('lo')
+        """
+        let output6 = executeInteractiveCode(codeText: code6)
+        XCTAssertEqual(output6,
+                        """
+                        hi
+
+                          File "Ace", line 1
+                            print('h
+                                   ^
+                        SyntaxError: EOL while scanning string literal
+                        """)
+    }
+    
+    func testExecuteInteractive7() {
+        let code7 =
+        """
+        a=1
+        """
+        let output7 = executeInteractiveCode(codeText: code7)
+        XCTAssertEqual(output7,
+                        """
+
+                        """)
+    }
+    
+    
+    @available(OSX 10.15, *)
+    private func executeInteractiveCode(codeText: String) -> String {
+        PythonLambda.initializeInteractiveExecutor()
+        
+        return PythonLambda.executeInteractiveCode(codeText: codeText)
+    }
 
 }
 

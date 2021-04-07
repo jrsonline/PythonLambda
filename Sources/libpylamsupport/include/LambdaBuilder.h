@@ -33,6 +33,20 @@ const char* stringFromPythonObject(PyObject* p);
 PyObject * getPyUnicode_FromString (const char *u);
 PyObject* createPyCFunction(PyMethodDef* ml, PyObject* data);
 
+PyObject* executePythonCode(const char* code, int start, PyObject* globals, PyObject* locals, int showErrors);
+PyObject* getPythonExecutionGlobals();
+void setItemInGlobalDictionary(const char* key, PyObject* value);
+PyObject*  getItemFromGlobalDictionary(const char* key);
+
 void debug_showAddress(const char* varName, void* value);
+PyObject* getAttrString(PyObject* obj, const char* attr);
+int setAttrString(PyObject* obj, const char* attr, PyObject* value);
+void printErrors();
+PyObject* getModule(const char* name);
+int runInteractiveOne(FILE* fp, const char* filename);
+PyObject* compileString(const char* code, const char* name, int start);
+void clearErrors();
+PyObject* errorRaised(void);
+void executeOnMain(const char* code);
 
 #endif /* LambdaBuilder_h */
