@@ -141,12 +141,7 @@ class PythonLambdaTests: XCTestCase {
         
         let output1 = executeInteractiveCode(codeText: code1)
         
-        XCTAssertEqual(output1,
-                        """
-
-                        Hi
-
-                        """)
+        XCTAssertEqual(output1, "Hi\n")
     }
     
     func testExecuteInteractive1() {
@@ -159,16 +154,7 @@ class PythonLambdaTests: XCTestCase {
         
         let output1 = executeInteractiveCode(codeText: code1)
         
-        XCTAssertEqual(output1,
-                        """
-
-                        1
-                        2
-                        3
-                        4
-                        Done
-
-                        """)
+        XCTAssertEqual(output1, "1\n2\n3\n4\nDone\n")
     }
     
     func testExecuteInteractive2() {
@@ -195,12 +181,7 @@ class PythonLambdaTests: XCTestCase {
         a+1
         """
         let output3 = executeInteractiveCode(codeText: code3)
-        XCTAssertEqual(output3,
-                        """
-
-                        2
-
-                        """)
+        XCTAssertEqual(output3,"2\n")
 
         
     }
@@ -212,12 +193,7 @@ class PythonLambdaTests: XCTestCase {
         b+' everyone'
         """
         let output4 = executeInteractiveCode(codeText: code4)
-        XCTAssertEqual(output4,
-                        """
-
-                        hello everyone
-
-                        """)
+        XCTAssertEqual(output4,"hello everyone\n")
     }
     
     func testExecuteInteractive5() {
@@ -227,12 +203,10 @@ class PythonLambdaTests: XCTestCase {
             print(i)
         for v in ['a','b','c','d']:
             print(v)
-        v + str(i)
         """
         let output5 = executeInteractiveCode(codeText: code5)
         XCTAssertEqual(output5,
                         """
-
                         1
                         2
                         3
@@ -241,7 +215,6 @@ class PythonLambdaTests: XCTestCase {
                         b
                         c
                         d
-                        d4
 
                         """)
     }
@@ -256,12 +229,11 @@ class PythonLambdaTests: XCTestCase {
         let output6 = executeInteractiveCode(codeText: code6)
         XCTAssertEqual(output6,
                         """
-                        hi
-
-                          File "Ace", line 1
+                          File "<string>", line 2
                             print('h
                                    ^
                         SyntaxError: EOL while scanning string literal
+
                         """)
     }
     

@@ -496,7 +496,7 @@ extension PythonLambda {
                 self._iv_type = ''
             def _iveval(self):
                 self._iv_value = eval(self._iv_toeval)
-                self._type = type(self._iv_value)
+                self._iv_type = type(self._iv_value)
         _interactiveEval = _InteractiveEval()
         """
         )
@@ -505,7 +505,7 @@ extension PythonLambda {
     private struct PythonInterpreterError : Error {}
 
     @available(OSX 10.15, *)
-    public static func executeLikeInteractive(code: String) -> String {
+    public static func executeLikeInteractive_old(code: String) -> String {
         guard Self.lib != nil else { fatalError("Python C library not instantiated!")}
 
         func isDefiniteStatement(line: String) -> Bool {
@@ -579,6 +579,119 @@ extension PythonLambda {
         }
         return result
     }
+
+    @available(OSX 10.15, *)
+    public static func executeLikeInteractive(code: String, writebacks: [String:String], magic: (String,String) -> (execute:String, result:String)) -> String {
+        guard Self.lib != nil else { fatalError("Python C library not instantiated!")}
+
+        var result: String = ""
+    
+        // execute everything except the last line, as a single block of code.
+        // the last line might be an expression, so try that.
+        
+        func lineMayBeExpression(_ line: String) -> Bool {
+            let hasLeadingWhitespace = line.starts(with: " ") || line.starts(with: "\t")
+            guard !hasLeadingWhitespace else { return false }
+            
+            // can we compile it?
+            let canCompile = PythonLambdaSupport.canCompileCode(code: line, tagName: "Ace")
+            
+            // reset if we got any errors while trying to compile
+            PythonLambdaSupport.clearPythonErrors()
+            return canCompile
+        }
+        
+        func magicLine(_ line: Substring) -> (execute:String, result:String) {
+            // magic lines always start with '%'
+            // first word after '%' is the magic word, the rest is passed as a parameter
+            if let first = line.first,
+               first == "%" {
+                let split = line.dropFirst().split(maxSplits: 1, whereSeparator: {$0 == " "}).map (String.init) + ["",""]
+                return magic(split[0], split[1])
+            }
+            
+            return (execute:String(line), result:"")
+        }
+        
+        // "execute" won't return errors, we need to hunt for them...!
+        func checkResultForError(_ result: String) -> Bool {
+            return (result.contains("Traceback") && result.contains("Error:")) || (result.contains("SyntaxError: EOL while scanning"))
+        }
+        
+        func checkWritebacks(result: PythonObject, ofType type: String) -> Bool {
+            guard let writebackVariable = writebacks[type] else { return false }
+            PythonLambda.addToGlobalDictionary(key: writebackVariable, value: result)
+            return true
+        }
+        
+        // Throw away any output received outside the interactive eval, and mark ready
+        _ = PythonLambda.retrieveRecentRedirectedOutput()
+
+
+        do {
+            let statementLines = code.split(separator: "\n").map (magicLine)
+            let magicResults = statementLines.map { $0.result }.joined(separator: "\n")
+            let statementExecute = statementLines.map { $0.execute }
+            let lastLine = statementExecute.last
+            let evaluateLastLine: Bool
+            let statementBlock: String
+            
+            result += magicResults
+            
+            if let lastLine = lastLine, lineMayBeExpression(lastLine) {
+                statementBlock = statementExecute.dropLast().joined(separator: "\n")
+                evaluateLastLine = true
+            } else {
+                statementBlock = statementExecute.joined(separator: "\n") // evaluate everything
+                evaluateLastLine = false
+            }
+                    
+            if statementBlock.count > 0 {
+                Python.execute( statementBlock )
+            }
+            
+            result += PythonLambda.retrieveRecentRedirectedOutput()
+            
+            if PythonLambdaSupport.wasPythonErrorRaised() || checkResultForError(result) {
+                throw PythonInterpreterError()
+            }
+                                
+                    
+            // Try to evaulate last line and get the result.
+            if let lastLine = lastLine, evaluateLastLine {
+
+                    let (expResultPtr, expTypePtr) = PythonLambdaSupport.executeAndReturn(code: lastLine, attrName: "_interactiveEval", toEval: "_iv_toeval", evalExecute: "_iveval", valueName: "_iv_value", typeName: "_iv_type")
+                    let expResult = expResultPtr.map { PythonObject(unsafe:$0) } ?? Python.None
+                    let expType = "\(expTypePtr.map { PythonObject(unsafe:$0) } ?? Python.None)"
+
+                    let postEvalResult = PythonLambda.retrieveRecentRedirectedOutput()
+                    
+                    // Couldn't evaluate
+                    if expType == "<class 'NoneType'>" && postEvalResult == "" {
+                        Python.execute(lastLine)
+                    } else {
+                        let elements =
+                            ["\(expType == "<class 'NoneType'>" ? "" : expResult)", postEvalResult]
+                            .joinedIfNecessary(with: "\n")
+                        result += elements
+                        
+                        // check for writebacks
+                        if checkWritebacks(result: expResult, ofType: expType) {
+                            result += "\n(Automatically writing back '\(expType) result to '\(writebacks[expType]!)')"
+                        }
+                    }
+            }
+                                    
+            if PythonLambdaSupport.wasPythonErrorRaised() || checkResultForError(result) {
+                throw PythonInterpreterError()
+            }
+
+        } catch {
+            PythonLambdaSupport.showPythonErrors()
+            PythonLambdaSupport.clearPythonErrors()
+        }
+        return result
+    }
     
     /// Call this once, before calling `executeInteractiveCode`.
     @available(OSX 10.15, *)
@@ -592,9 +705,9 @@ extension PythonLambda {
     /// However two things 'executeInteractiveCode' attempts to do are: i) if the last line is an expression, return the
     /// result of the expression; ii) errors are returned via strings as per the Python interpreter.
     @available(OSX 10.15, *)
-    public static func executeInteractiveCode(codeText: String) -> String {
+    public static func executeInteractiveCode(codeText: String, writebacks:[String:String] = [:], magic: (String,String) -> (execute:String,results:String) = {($1,"")}) -> String {
 
-        let result = PythonLambda.executeLikeInteractive(code: codeText)
+        let result = PythonLambda.executeLikeInteractive(code: codeText, writebacks: writebacks, magic: magic) 
     
         let output = PythonLambda.retrieveRecentRedirectedOutput()
         let refinedOutput: String
@@ -611,6 +724,6 @@ extension PythonLambda {
             refinedResult = result
         }
         
-        return [refinedResult, refinedOutput].joined(separator: "\n")
+        return [refinedResult, refinedOutput].joinedIfNecessary(with:  "\n")
     }
 }
