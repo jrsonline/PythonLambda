@@ -6,6 +6,8 @@
 //
 
 import PythonKit
+import Foundation
+import FoundationHelpers
 
 /// Allows Swift functions to be represented as Python lambdas. Note that you can use the typealias 𝝺 for `PythonLambda`, as per this documentation, because it looks nice. PythonLambda is only available on Python versions > 3.
 ///
@@ -625,8 +627,7 @@ extension PythonLambda {
         }
         
         // Throw away any output received outside the interactive eval, and mark ready
-        _ = PythonLambda.retrieveRecentRedirectedOutput()
-
+        _ = PythonLambda.retrieveRecentRedirectedOutput
 
         do {
             let statementLines = code.split(separator: "\n").map (magicLine)
@@ -690,7 +691,8 @@ extension PythonLambda {
             PythonLambdaSupport.showPythonErrors()
             PythonLambdaSupport.clearPythonErrors()
         }
-        return result
+        return result.split(separator: "\n").dropMultiple { s in s.allSatisfy{ $0.isWhitespace } }.joined(separator: "\n")
+
     }
     
     /// Call this once, before calling `executeInteractiveCode`.

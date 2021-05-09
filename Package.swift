@@ -13,7 +13,8 @@ let package = Package(
     ],
     dependencies: [
      //   .package(url: "https://github.com/pvieito/PythonKit.git", .branch("master")),
-        .package(url:"https://github.com/jrsonline/PythonKit.git",.branch("extended_dynamic_calls"))
+        .package(url:"https://github.com/jrsonline/PythonKit.git",.branch("extended_dynamic_calls")),
+        .package(path: "../FoundationHelpers")
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
@@ -24,7 +25,7 @@ let package = Package(
         ),
         .target(
             name: "PythonLambda",
-            dependencies:[  "libpylamsupport" , "PythonKit"]
+            dependencies:[  "libpylamsupport" , "PythonKit", "FoundationHelpers" ]
         ),
         .testTarget(
             name: "PythonLambdaTests",
